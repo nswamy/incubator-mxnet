@@ -5,6 +5,44 @@ This Scala tutorial guides you through a classic computer vision application: id
 Let's train a 3-layer network (i.e multilayer perceptron network) on the MNIST dataset to classify handwritten digits.
 
 ## Prerequisites
+
+### Install Scala
+
+### Install Jupyter
+Jupyter Notebook is a web application that allows to create documents with code, equations, visualizations and narrative text.
+
+For Python3 
+```
+python3 -m pip install jupyter
+```
+
+For Python2
+```
+python -m pip install jupyter
+```
+### Install the Jupyter Scala.
+Follow instructions on the jupyter-scala install [page](https://github.com/jupyter-scala/jupyter-scala).  
+ 
+### Install Apache Maven
+Apache Maven is a software project management and comprehension tool for Java and Scala packages.
+
+To install on Mac OSX
+```
+brew install maven
+```
+
+[Installing Apache Maven](https://maven.apache.org/install.html)
+
+### Install Coursier
+
+Coursier is a dependency resolver for Scala dependencies.
+
+[Coursier Quick Start](https://github.com/coursier/coursier#quick-start) 
+
+### Download the MXNet Scala package
+
+
+
 To complete this tutorial, we need:
 
 - to compile the latest MXNet version. See the MXNet installation instructions for your operating system in [Setup and Installation](http://mxnet.io/get_started/install.html).

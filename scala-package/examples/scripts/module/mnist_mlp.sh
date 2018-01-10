@@ -18,6 +18,12 @@
 # under the License.
 
 ROOT_DIR=$(cd `dirname $0`/../../..; pwd)
+DATA_DIR=$ROOT_DIR/core/data
+
+echo "Downloading MNIST data into $DATA_DIR ... "
+export MXNET_DATA_DIR=$DATA_DIR;$ROOT_DIR/core/scripts/get_mnist_data.sh
+echo "Downloaded MNIST data"
+
 CLASSPATH=$ROOT_DIR/assembly/osx-x86_64-cpu/target/*:$ROOT_DIR/examples/target/*:$ROOT_DIR/examples/target/classes/lib/*
 
 mkdir -p model
