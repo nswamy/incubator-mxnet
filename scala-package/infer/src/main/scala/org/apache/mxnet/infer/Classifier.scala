@@ -17,7 +17,7 @@
 
 package org.apache.mxnet.infer
 
-import org.apache.mxnet.{Context, DataDesc, NDArray}
+import org.apache.mxnet.{Context, DataDesc, MXNetHandler, NDArray}
 import java.io.File
 
 import org.slf4j.LoggerFactory

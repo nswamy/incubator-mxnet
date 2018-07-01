@@ -38,6 +38,8 @@ object NDArray extends NDArrayBase {
 
   private val functions: Map[String, NDArrayFunction] = initNDArrayModule()
 
+  private val mxHandler = MXNetHandler()
+
   val api = NDArrayAPI
 
   private def addDependency(froms: Array[NDArray], tos: Array[NDArray]): Unit = {
@@ -61,18 +63,19 @@ object NDArray extends NDArrayBase {
    * @return The result NDArrays of result of computation.
    */
   private[mxnet] def genericNDArrayFunctionInvoke(
-    funcName: String, args: Seq[Any], kwargs: Map[String, Any] = null): NDArrayFuncReturn = {
-    val function = functions(funcName)
-    val ndArgs = ArrayBuffer.empty[NDArray]
-    val posArgs = ArrayBuffer.empty[String]
-    args.foreach {
-        case arr: NDArray =>
-          ndArgs.append(arr)
-        case arrFunRet: NDArrayFuncReturn =>
-          arrFunRet.arr.foreach(ndArgs.append(_))
-        case arg =>
-          posArgs.append(arg.toString)
-    }
+    funcName: String, args: Seq[Any], kwargs: Map[String, Any] = null): NDArrayFuncReturn =
+    mxHandler.execute({
+      val function = functions(funcName)
+      val inputND = ArrayBuffer.empty[NDArray]
+      val posArgs = ArrayBuffer.empty[String]
+      args.foreach {
+          case arr: NDArray =>
+            inputND.append(arr)
+          case arrFunRet: NDArrayFuncReturn =>
+            arrFunRet.arr.foreach(inputND.append(_))
+          case arg =>
+            posArgs.append(arg.toString)
+      }
 
     require(posArgs.length <= function.arguments.length,
       s"len(posArgs) = ${posArgs.length}, should be less or equal to len(arguments) " +
@@ -83,7 +86,7 @@ object NDArray extends NDArrayBase {
       ).map { case (k, v) => k -> v.toString }
 
 
-    val (oriOutputs, outputVars) =
+    val (outputND, outNDHandles) =
       if (kwargs != null && kwargs.contains("out")) {
         val output = kwargs("out")
         output match {
@@ -102,14 +105,14 @@ object NDArray extends NDArrayBase {
       }
 
     val outputs = ArrayBuffer.empty[NDArrayHandle]
-    checkCall(_LIB.mxImperativeInvoke(function.handle, ndArgs.map(_.handle).toArray, outputVars,
+    checkCall(_LIB.mxImperativeInvoke(function.handle, inputND.map(_.handle).toArray, outNDHandles,
       outputs, updatedKwargs.size, updatedKwargs.keys.toArray, updatedKwargs.values.toArray))
-    new NDArrayFuncReturn(Option(oriOutputs).getOrElse {
+    new NDArrayFuncReturn(Option(outputND).getOrElse {
       val outputArrs = outputs.map(new NDArray(_)).toArray
-      addDependency(ndArgs.toArray, outputArrs)
+      addDependency(inputND.toArray, outputArrs)
       outputArrs
     })
-  }
+  })
 
   /**
    * Return a new empty handle.
@@ -557,6 +560,7 @@ object NDArray extends NDArrayBase {
  * WARNING: it is your responsibility to clear this object through dispose().
  * </b>
  */
+// scalastyle:off finalize
 class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
                              val writable: Boolean = true,
                              addToCollector: Boolean = true) extends WarnIfNotDisposed {
@@ -569,6 +573,12 @@ class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
   private[mxnet] val dependencies = mutable.HashMap.empty[Long, WeakReference[NDArray]]
   @volatile private var disposed = false
   def isDisposed: Boolean = disposed
+
+  override def finalize(): Unit = {
+    super.finalize()
+    NDArray.logger.info("FINALIZER: disposing NDArray through Finalizer")
+    NDArray.mxHandler.execute(dispose())
+  }
 
   def serialize(): Array[Byte] = {
     val buf = ArrayBuffer.empty[Byte]
@@ -1032,6 +1042,7 @@ class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
     shape.hashCode + toArray.hashCode
   }
 }
+// scalastyle:on finalize
 
 private[mxnet] object NDArrayConversions {
   implicit def int2Scalar(x: Int): NDArrayConversions = new NDArrayConversions(x.toFloat)

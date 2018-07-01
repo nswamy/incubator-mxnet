@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.mxnet.infer
+package org.apache.mxnet
 
 import java.util.concurrent._
 
 import org.slf4j.LoggerFactory
 
-private[infer] trait MXNetHandler {
+private[mxnet] trait MXNetHandler {
 
   def execute[T](f: => T): T
 
@@ -29,14 +29,14 @@ private[infer] trait MXNetHandler {
 
 }
 
-private[infer] object MXNetHandlerType extends Enumeration {
+private[mxnet] object MXNetHandlerType extends Enumeration {
 
   type MXNetHandlerType = Value
   val SingleThreadHandler = Value("MXNetSingleThreadHandler")
   val OneThreadPerModelHandler = Value("MXNetOneThreadPerModelHandler")
 }
 
-private[infer] class MXNetThreadPoolHandler(numThreads: Int = 1)
+private[mxnet] class MXNetThreadPoolHandler(numThreads: Int = 1)
   extends MXNetHandler {
 
   require(numThreads > 0, "numThreads should be a positive number, you passed:%d".
@@ -88,14 +88,14 @@ private[infer] class MXNetThreadPoolHandler(numThreads: Int = 1)
 
 }
 
-private[infer] object MXNetSingleThreadHandler extends MXNetThreadPoolHandler(1) {
+private[mxnet] object MXNetSingleThreadHandler extends MXNetThreadPoolHandler(1) {
 
 }
 
-private[infer] object MXNetHandler {
+private[mxnet] object MXNetHandler {
 
   def apply(): MXNetHandler = {
-    if (handlerType == MXNetHandlerType.OneThreadPerModelHandler) {
+    if (org.apache.mxnet.handlerType == MXNetHandlerType.OneThreadPerModelHandler) {
       new MXNetThreadPoolHandler(1)
     } else {
       MXNetSingleThreadHandler
