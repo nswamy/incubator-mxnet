@@ -105,7 +105,7 @@ private[mxnet] object APIDocGenerator{
   // Generate ScalaDoc type
   def generateAPIDocFromBackend(func : absClassFunction, withParam : Boolean = true) : String = {
     val desc = func.desc.split("\n").map({ currStr =>
-      s"  * $currStr<br>"
+      s"   * $currStr"
     })
     val params = func.listOfArgs.map({ absClassArg =>
       val currArgName = absClassArg.argName match {
@@ -113,13 +113,13 @@ private[mxnet] object APIDocGenerator{
                 case "type" => "typeOf"
                 case _ => absClassArg.argName
       }
-      s"  * @param $currArgName\t\t${absClassArg.argDesc}"
+      s"   * @param $currArgName\t\t${absClassArg.argDesc}"
     })
-    val returnType = s"  * @return ${func.returnType}"
+    val returnType = s"   * @return ${func.returnType}"
     if (withParam) {
-      s"  /**\n${desc.mkString("\n")}\n${params.mkString("\n")}\n$returnType\n  */"
+      s"\n  /**\n${desc.mkString("\n")}\n${params.mkString("\n")}\n$returnType\n   */"
     } else {
-      s"  /**\n${desc.mkString("\n")}\n$returnType\n  */"
+      s"\n  /**\n${desc.mkString("\n")}\n$returnType\n   */"
     }
   }
 
@@ -147,7 +147,7 @@ private[mxnet] object APIDocGenerator{
       returnType = "org.apache.mxnet.NDArrayFuncReturn"
     }
     val experimentalTag = "@Experimental"
-    s"$experimentalTag\ndef ${func.name} (${argDef.mkString(", ")}) : $returnType"
+    s"   $experimentalTag\n   def ${func.name} (${argDef.mkString(", ")}) : $returnType"
   }
 
 
