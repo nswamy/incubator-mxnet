@@ -33,6 +33,15 @@ object IO {
   type IterCreateFunc = (Map[String, String]) => DataIter
   type PackCreateFunc = (Map[String, String]) => DataPack
 
+  private var _handler: MXNetHandler = null
+
+  private def mxHandler : MXNetHandler = {
+    if (_handler == null) {
+      _handler = MXNetHandler()
+    }
+    _handler
+  }
+
   private val logger = LoggerFactory.getLogger(classOf[DataIter])
   private val iterCreateFuncs: Map[String, IterCreateFunc] = initIOModule()
 
@@ -75,7 +84,7 @@ object IO {
    */
   private def initIOModule(): Map[String, IterCreateFunc] = {
     val IterCreators = new ListBuffer[DataIterCreator]
-    checkCall(_LIB.mxListDataIters(IterCreators))
+    checkCall(IO.mxHandler.execute(_LIB.mxListDataIters(IterCreators)))
     IterCreators.map(makeIOIterator).toMap
   }
 
@@ -85,7 +94,8 @@ object IO {
     val argNames = new ListBuffer[String]
     val argTypes = new ListBuffer[String]
     val argDescs = new ListBuffer[String]
-    checkCall(_LIB.mxDataIterGetIterInfo(handle, name, desc, argNames, argTypes, argDescs))
+    checkCall(IO.mxHandler.execute(_LIB.mxDataIterGetIterInfo(handle, name,
+      desc, argNames, argTypes, argDescs)))
     val paramStr = Base.ctypes2docstring(argNames, argTypes, argDescs)
     val docStr = s"${name.value}\n${desc.value}\n\n$paramStr\n"
     logger.debug(docStr)
@@ -103,7 +113,7 @@ object IO {
     val out = new DataIterHandleRef
     val keys = params.keys.toArray
     val vals = params.values.toArray
-    checkCall(_LIB.mxDataIterCreateIter(handle, keys, vals, out))
+    checkCall(IO.mxHandler.execute(_LIB.mxDataIterCreateIter(handle, keys, vals, out)))
     val dataName = params.getOrElse("data_name", "data")
     val labelName = params.getOrElse("label_name", "label")
     new MXDataIter(out.value, dataName, labelName)

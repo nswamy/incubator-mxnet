@@ -22,13 +22,13 @@ import org.apache.mxnet.DType.DType
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-
 /**
  * Symbolic configuration API of mxnet. <br />
  * <b>
  * WARNING: it is your responsibility to clear this object through dispose().
  * </b>
  */
+// scalastyle:off finalize
 class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotDisposed {
   private val logger: Logger = LoggerFactory.getLogger(classOf[Symbol])
   private var disposed = false
@@ -40,9 +40,15 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    */
   def dispose(): Unit = {
     if (!disposed) {
-      _LIB.mxSymbolFree(handle)
+      Symbol.mxHandler.execute(_LIB.mxSymbolFree(handle))
       disposed = true
     }
+  }
+
+  override def finalize(): Unit = {
+    super.finalize()
+    Symbol.logger.info("FINALIZER: disposing Symbol through Finalizer")
+    dispose()
   }
 
   def +(other: Symbol): Symbol = Symbol.createFromListedSymbols("_Plus")(Array(this, other))
@@ -87,13 +93,13 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
 
   override def clone(): Symbol = {
     val clonedHandle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolCopy(handle, clonedHandle))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolCopy(handle, clonedHandle)))
     new Symbol(clonedHandle.value)
   }
 
   def get(index: Int): Symbol = {
     val newHandle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolGetOutput(handle, index, newHandle))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolGetOutput(handle, index, newHandle)))
     new Symbol(handle = newHandle.value)
   }
 
@@ -114,7 +120,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    */
   def getInternals(): Symbol = {
     val newHandle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolGetInternals(handle, newHandle))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolGetInternals(handle, newHandle)))
     new Symbol(handle = newHandle.value)
   }
 
@@ -124,7 +130,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    */
   def listArguments(): IndexedSeq[String] = {
     val arr = ArrayBuffer.empty[String]
-    checkCall(_LIB.mxSymbolListArguments(handle, arr))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolListArguments(handle, arr)))
     arr
   }
 
@@ -134,7 +140,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    */
   def listOutputs(): IndexedSeq[String] = {
     val arr = ArrayBuffer.empty[String]
-    checkCall(_LIB.mxSymbolListOutputs(handle, arr))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolListOutputs(handle, arr)))
     arr
   }
 
@@ -149,7 +155,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    */
   def listAuxiliaryStates(): IndexedSeq[String] = {
     val sarr = ArrayBuffer.empty[String]
-    checkCall(_LIB.mxSymbolListAuxiliaryStates(handle, sarr))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolListAuxiliaryStates(handle, sarr)))
     sarr
   }
 
@@ -205,8 +211,8 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
     val outTypeData = ListBuffer.empty[Int]
     val auxTypeData = ListBuffer.empty[Int]
     val complete = new RefInt
-    checkCall(_LIB.mxSymbolInferType(
-      handle, keys, values, argTypeData, outTypeData, auxTypeData, complete))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolInferType(
+      handle, keys, values, argTypeData, outTypeData, auxTypeData, complete)))
     if (complete.value != 0) {
       (argTypeData.map(DType(_)), outTypeData.map(DType(_)), auxTypeData.map(DType(_)))
     } else {
@@ -270,8 +276,8 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
     val auxShapeData = ListBuffer.empty[Array[Int]]
     val complete = new RefInt
 
-    checkCall(_LIB.mxSymbolInferShape(handle, indPtr.length - 1, keys, indPtr, values,
-      argShapeData, outShapeData, auxShapeData, complete))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolInferShape(handle, indPtr.length - 1, keys,
+      indPtr, values, argShapeData, outShapeData, auxShapeData, complete)))
     if (complete.value != 0) {
       (argShapeData.map(s => Shape(s)).toIndexedSeq,
        outShapeData.map(s => Shape(s)).toIndexedSeq,
@@ -289,7 +295,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
   def attr(key: String): Option[String] = {
     val ret = new RefString
     val success = new RefInt
-    checkCall(_LIB.mxSymbolGetAttr(handle, key, ret, success))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolGetAttr(handle, key, ret, success)))
     if (success.value != 0) {
       Option(ret.value)
     } else {
@@ -315,14 +321,14 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    */
   def debugStr: String = {
     val str = new RefString
-    checkCall(_LIB.mxSymbolPrint(handle, str))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolPrint(handle, str)))
     str.value
   }
 
   // Set the attribute of the symbol.
   private def setAttr(attr: Map[String, String]): Unit = {
     attr.foreach { case (key, value) =>
-      checkCall(_LIB.mxSymbolSetAttr(handle, key, value))
+      checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolSetAttr(handle, key, value)))
     }
   }
 
@@ -333,7 +339,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
   def listAttr(): Map[String, String] = {
     val outSize = new MXUintRef
     val out = ArrayBuffer[String]()
-    checkCall(_LIB.mxSymbolListAttrShallow(handle, outSize, out))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolListAttrShallow(handle, outSize, out)))
     (0 until outSize.value).map(i => out(i * 2) -> out(i * 2 + 1)).toMap
   }
 
@@ -347,7 +353,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
   def attrMap(): Map[String, Map[String, String]] = {
     val outSize = new MXUintRef
     val out = ArrayBuffer[String]()
-    checkCall(_LIB.mxSymbolListAttr(handle, outSize, out))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolListAttr(handle, outSize, out)))
     val result = {
       val tmp = out.toArray.grouped(2).map{ strs =>
         val nk = strs(0).split('$')
@@ -373,7 +379,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    * @see Symbol.load : Used to load symbol from file.
    */
   def save(fname: String): Unit = {
-    checkCall(_LIB.mxSymbolSaveToFile(this.handle, fname))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolSaveToFile(this.handle, fname)))
   }
 
   /**
@@ -385,13 +391,13 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    */
   private def compose(name: String, symbols: Array[Symbol]): Unit = {
     val args = symbols.map(_.handle)
-    checkCall(_LIB.mxSymbolCompose(handle, name, null, args))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolCompose(handle, name, null, args)))
   }
 
   private def compose(name: String, symbols: Map[String, Symbol]): Unit = {
     val keys = symbols.keys.toArray
     val args = symbols.values.map(_.handle).toArray
-    checkCall(_LIB.mxSymbolCompose(handle, name, keys, args))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolCompose(handle, name, keys, args)))
   }
 
   /**
@@ -782,7 +788,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
 
     val execHandle = new ExecutorHandleRef
     val sharedHadle = if (sharedExec != null) sharedExec.handle else 0L
-    checkCall(_LIB.mxExecutorBindEX(handle,
+    checkCall(Symbol.mxHandler.execute(_LIB.mxExecutorBindEX(handle,
                                    ctx.deviceTypeid,
                                    ctx.deviceId,
                                    ctxMapKeys.size,
@@ -795,7 +801,7 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
                                    reqsArray,
                                    auxArgsHandle,
                                    sharedHadle,
-                                   execHandle))
+                                   execHandle)))
     val executor = new Executor(execHandle.value, this.clone())
     executor.argArrays = argsNDArray
     executor.gradArrays = argsGradNDArray
@@ -817,11 +823,11 @@ class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotD
    */
   def toJson: String = {
     val jsonStr = new RefString
-    checkCall(_LIB.mxSymbolSaveToJSON(handle, jsonStr))
+    checkCall(Symbol.mxHandler.execute(_LIB.mxSymbolSaveToJSON(handle, jsonStr)))
     jsonStr.value
   }
 }
-
+// scalastyle:on finalize
 /**
   * Symbol Object extends from SymbolBase for abstract function signatures
   * Main code will be generated during compile time through Macros
@@ -832,6 +838,14 @@ object Symbol extends SymbolBase {
   private val logger = LoggerFactory.getLogger(classOf[Symbol])
   private val functions: Map[String, SymbolFunction] = initSymbolModule()
   private val bindReqMap = Map("null" -> 0, "write" -> 1, "add" -> 3)
+
+  private var _handler: MXNetHandler = null
+  private def mxHandler : MXNetHandler = {
+    if (_handler == null) {
+      _handler = MXNetHandler()
+    }
+    _handler
+  }
 
   val api = SymbolAPI
 
@@ -982,7 +996,7 @@ object Symbol extends SymbolBase {
       lrMult: Option[Float] = None, wdMult: Option[Float] = None, dType: DType = null,
       kwargs: Map[String, String] = Map.empty[String, String]): Symbol = {
     val handle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolCreateVariable(name, handle))
+    checkCall(mxHandler.execute(_LIB.mxSymbolCreateVariable(name, handle)))
     val sym = new Symbol(handle.value)
     val tmpAttr = scala.collection.mutable.Map[String, String]()
     if (shape != null) tmpAttr += "__shape__" -> shape.toString
@@ -1010,17 +1024,17 @@ object Symbol extends SymbolBase {
   def Group(symbols: Symbol*): Symbol = {
     val ihandles = symbols.map(_.handle).toArray
     val handle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolCreateGroup(ihandles, handle))
+    checkCall(mxHandler.execute(_LIB.mxSymbolCreateGroup(ihandles, handle)))
     new Symbol(handle.value)
   }
 
   // List and add all the atomic symbol functions to current module.
   private def initSymbolModule(): Map[String, SymbolFunction] = {
     val opNames = ListBuffer.empty[String]
-    checkCall(_LIB.mxListAllOpNames(opNames))
+    checkCall(mxHandler.execute(_LIB.mxListAllOpNames(opNames)))
     opNames.map(opName => {
       val opHandle = new RefLong
-      checkCall(_LIB.nnGetOpHandle(opName, opHandle))
+      checkCall(mxHandler.execute(_LIB.nnGetOpHandle(opName, opHandle)))
       makeAtomicSymbolFunction(opHandle.value, opName)
     }).toMap
   }
@@ -1036,8 +1050,8 @@ object Symbol extends SymbolBase {
     val argTypes = ListBuffer.empty[String]
     val argDescs = ListBuffer.empty[String]
 
-    checkCall(_LIB.mxSymbolGetAtomicSymbolInfo(
-      handle, name, desc, numArgs, argNames, argTypes, argDescs, keyVarNumArgs))
+    checkCall(mxHandler.execute(_LIB.mxSymbolGetAtomicSymbolInfo(
+      handle, name, desc, numArgs, argNames, argTypes, argDescs, keyVarNumArgs)))
     (aliasName, new SymbolFunction(handle, keyVarNumArgs.value))
   }
 
@@ -1104,8 +1118,8 @@ object Symbol extends SymbolBase {
 
     // create atomic symbol
     val symHandle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolCreateAtomicSymbol(
-      function.handle, paramKeys, paramVals, symHandle))
+    checkCall(mxHandler.execute(_LIB.mxSymbolCreateAtomicSymbol(
+      function.handle, paramKeys, paramVals, symHandle)))
 
     val s = new Symbol(symHandle.value)
     val attrAll = AttrScope.current.get(Option(attr))
@@ -1140,8 +1154,8 @@ object Symbol extends SymbolBase {
       if (paramKwargs == null) Array.empty[String]
       else paramKwargs.values.toArray
     val symHandle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolCreateAtomicSymbol(
-      function.handle, paramKeys, paramVals, symHandle))
+    checkCall(mxHandler.execute(_LIB.mxSymbolCreateAtomicSymbol(
+      function.handle, paramKeys, paramVals, symHandle)))
 
     val s = new Symbol(symHandle.value)
     val attrAll = AttrScope.current.get(Option(attr))
@@ -1238,7 +1252,7 @@ object Symbol extends SymbolBase {
    */
   def load(fname: String): Symbol = {
     val handle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolCreateFromFile(fname, handle))
+    checkCall(mxHandler.execute(_LIB.mxSymbolCreateFromFile(fname, handle)))
     new Symbol(handle.value)
   }
 
@@ -1250,7 +1264,7 @@ object Symbol extends SymbolBase {
    */
   def loadJson(json: String): Symbol = {
     val handle = new SymbolHandleRef
-    checkCall(_LIB.mxSymbolCreateFromJSON(json, handle))
+    checkCall(mxHandler.execute(_LIB.mxSymbolCreateFromJSON(json, handle)))
     new Symbol(handle.value)
   }
 }

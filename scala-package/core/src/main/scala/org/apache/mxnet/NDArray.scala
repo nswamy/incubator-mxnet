@@ -21,6 +21,7 @@ import java.nio.{ByteBuffer, ByteOrder}
 
 import org.apache.mxnet.Base._
 import org.apache.mxnet.DType.DType
+import org.apache.mxnet.NDArray.mxHandler
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
@@ -38,7 +39,13 @@ object NDArray extends NDArrayBase {
 
   private val functions: Map[String, NDArrayFunction] = initNDArrayModule()
 
-  private val mxHandler = MXNetHandler()
+  private var _handler: MXNetHandler = null
+  private def mxHandler : MXNetHandler = {
+    if (_handler == null) {
+      _handler = MXNetHandler()
+    }
+    _handler
+  }
 
   val api = NDArrayAPI
 
@@ -122,7 +129,8 @@ object NDArray extends NDArrayBase {
    */
   private def newEmptyHandle(): NDArrayHandle = {
     val hdl = new NDArrayHandleRef
-    checkCall(_LIB.mxNDArrayCreateNone(hdl))
+
+    checkCall(mxHandler.execute(_LIB.mxNDArrayCreateNone(hdl)))
     hdl.value
   }
 
@@ -137,14 +145,14 @@ object NDArray extends NDArrayBase {
                              delayAlloc: Boolean,
                              dtype: DType = DType.Float32): NDArrayHandle = {
     val hdl = new NDArrayHandleRef
-    checkCall(_LIB.mxNDArrayCreateEx(
+    checkCall(mxHandler.execute(_LIB.mxNDArrayCreateEx(
       shape.toArray,
       shape.length,
       ctx.deviceTypeid,
       ctx.deviceId,
       if (delayAlloc) 1 else 0,
       dtype.id,
-      hdl))
+      hdl)))
     hdl.value
   }
 
@@ -153,16 +161,17 @@ object NDArray extends NDArrayBase {
    * This function is used for benchmark only
    */
   def waitall(): Unit = {
-    checkCall(_LIB.mxNDArrayWaitAll())
+    // TODO: nswamy this might not be necessary
+    checkCall(mxHandler.execute(_LIB.mxNDArrayWaitAll()))
   }
 
   // List and add all the atomic symbol functions to current module.
   private def initNDArrayModule(): Map[String, NDArrayFunction] = {
     val opNames = ListBuffer.empty[String]
-    checkCall(_LIB.mxListAllOpNames(opNames))
+    checkCall(mxHandler.execute(_LIB.mxListAllOpNames(opNames)))
     opNames.map(opName => {
       val opHandle = new RefLong
-      checkCall(_LIB.nnGetOpHandle(opName, opHandle))
+      checkCall(mxHandler.execute(_LIB.nnGetOpHandle(opName, opHandle)))
       makeNDArrayFunction(opHandle.value, opName)
     }).toMap
   }
@@ -178,8 +187,8 @@ object NDArray extends NDArrayBase {
     val argTypes = ListBuffer.empty[String]
     val argDescs = ListBuffer.empty[String]
 
-    checkCall(_LIB.mxSymbolGetAtomicSymbolInfo(
-      handle, name, desc, numArgs, argNames, argTypes, argDescs, keyVarNumArgs))
+    checkCall(mxHandler.execute(_LIB.mxSymbolGetAtomicSymbolInfo(
+      handle, name, desc, numArgs, argNames, argTypes, argDescs, keyVarNumArgs)))
     val arguments = (argTypes zip argNames).filter { case (dtype, _) =>
       !(dtype.startsWith("NDArray") || dtype.startsWith("Symbol")
         || dtype.startsWith("NDArray-or-Symbol"))
@@ -495,7 +504,7 @@ object NDArray extends NDArrayBase {
     val outNameSize = new MXUintRef
     val handles = ArrayBuffer.empty[NDArrayHandle]
     val names = ArrayBuffer.empty[String]
-    checkCall(_LIB.mxNDArrayLoad(fname, outSize, handles, outNameSize, names))
+    checkCall(mxHandler.execute(_LIB.mxNDArrayLoad(fname, outSize, handles, outNameSize, names)))
     require(outNameSize.value == 0 || outNameSize.value == outSize.value)
     (names.toArray, handles.map(new NDArray(_)).toArray)
   }
@@ -537,12 +546,12 @@ object NDArray extends NDArrayBase {
   }
 
   private def save(fname: String, keys: Array[String], handles: Array[NDArrayHandle]): Unit = {
-    checkCall(_LIB.mxNDArraySave(fname, handles, keys))
+    checkCall(mxHandler.execute(_LIB.mxNDArraySave(fname, handles, keys)))
   }
 
   def deserialize(bytes: Array[Byte]): NDArray = {
     val handleRef = new NDArrayHandleRef
-    checkCall(_LIB.mxNDArrayLoadFromRawBytes(bytes, handleRef))
+    checkCall(mxHandler.execute(_LIB.mxNDArrayLoadFromRawBytes(bytes, handleRef)))
     new NDArray(handleRef.value)
   }
 
@@ -577,12 +586,12 @@ class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
   override def finalize(): Unit = {
     super.finalize()
     NDArray.logger.info("FINALIZER: disposing NDArray through Finalizer")
-    NDArray.mxHandler.execute(dispose())
+    dispose()
   }
 
   def serialize(): Array[Byte] = {
     val buf = ArrayBuffer.empty[Byte]
-    checkCall(_LIB.mxNDArraySaveRawBytes(handle, buf))
+    checkCall(mxHandler.execute(_LIB.mxNDArraySaveRawBytes(handle, buf)))
     buf.toArray
   }
 
@@ -593,7 +602,7 @@ class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
    */
   def dispose(): Unit = {
     if (!disposed) {
-      _LIB.mxNDArrayFree(handle)
+      mxHandler.execute(_LIB.mxNDArrayFree(handle))
       dependencies.clear()
       disposed = true
     }
@@ -1013,7 +1022,7 @@ class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
   def shape: Shape = {
     val ndim = new MXUintRef
     val data = ArrayBuffer[Int]()
-    checkCall(_LIB.mxNDArrayGetShape(handle, ndim, data))
+    checkCall(mxHandler.execute(_LIB.mxNDArrayGetShape(handle, ndim, data)))
     require(ndim.value == data.length, s"ndim=$ndim, while len(pdata)=${data.length}")
     Shape(data)
   }
