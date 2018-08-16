@@ -582,11 +582,11 @@ class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
    * The object shall never be used after it is disposed.
    */
   def dispose(): Unit = {
-    if (!disposed) {
-      _LIB.mxNDArrayFree(handle)
-      dependencies.clear()
-      disposed = true
-    }
+//    if (!disposed) {
+//      _LIB.mxNDArrayFree(handle)
+//      dependencies.clear()
+//      disposed = true
+//    }
   }
 
   /**
@@ -606,21 +606,21 @@ class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
    * @return this array
    */
   def disposeDepsExcept(arrs: NDArray*): NDArray = {
-    if (dependencies != null) {
-      val excepts = mutable.HashSet.empty[Long]
-      arrs.foreach { arr =>
-        excepts += arr.handle
-        excepts ++= arr.dependencies.keys
-      }
-      dependencies.retain { case (addr, weak) =>
-        if (excepts.contains(addr)) {
-          true
-        } else {
-          weak.get.foreach(_.dispose())
-          false
-        }
-      }
-    }
+//    if (dependencies != null) {
+//      val excepts = mutable.HashSet.empty[Long]
+//      arrs.foreach { arr =>
+//        excepts += arr.handle
+//        excepts ++= arr.dependencies.keys
+//      }
+//      dependencies.retain { case (addr, weak) =>
+//        if (excepts.contains(addr)) {
+//          true
+//        } else {
+//          weak.get.foreach(_.dispose())
+//          false
+//        }
+//      }
+//    }
     this
   }
 
