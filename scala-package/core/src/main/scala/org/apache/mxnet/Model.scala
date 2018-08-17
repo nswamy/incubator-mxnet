@@ -319,6 +319,8 @@ object Model {
           if (epochSize != -1 && nBatch >= epochSize) {
             doReset = false
           }
+          System.gc()
+          NDPhantomRef.cleanup
         }
         if (doReset) {
           trainData.reset()

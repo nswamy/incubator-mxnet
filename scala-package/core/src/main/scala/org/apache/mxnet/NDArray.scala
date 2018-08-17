@@ -17,6 +17,7 @@
 
 package org.apache.mxnet
 
+import java.lang.ref.ReferenceQueue
 import java.nio.{ByteBuffer, ByteOrder}
 
 import org.apache.mxnet.Base._
@@ -26,6 +27,8 @@ import org.slf4j.LoggerFactory
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.ref.WeakReference
+import java.lang.ref.{PhantomReference, ReferenceQueue}
+import java.util.concurrent.ConcurrentHashMap
 
 /**
   * NDArray Object extends from NDArrayBase for abstract function signatures
@@ -550,6 +553,30 @@ object NDArray extends NDArrayBase {
   // TODO: imdecode
 }
 
+class NDPhantomRef (referent: NDArray, val ndHandle: NDArrayHandle)
+  extends PhantomReference[NDArray](referent, NDPhantomRef.ndRefQueue) {
+}
+
+object NDPhantomRef {
+  // using ConcurrentHashMap since ConcurrentHashSet is unavailable
+  // this is just holding the NDPhantomRef, so it does not get garbage collected
+  private val ndPhantomRefs = new ConcurrentHashMap[NDPhantomRef, NDArrayHandle]()
+  private val ndRefQueue = new ReferenceQueue[NDArray]
+  private val logger = LoggerFactory.getLogger(classOf[NDPhantomRef])
+
+  def register(nd: NDArray, ndHandle: NDArrayHandle) : Unit = {
+    ndPhantomRefs.put(new NDPhantomRef(nd, ndHandle), ndHandle)
+  }
+
+  def cleanup: Unit = {
+    var ref = ndRefQueue.poll().asInstanceOf[NDPhantomRef]
+    while (ref != null) {
+      _LIB.mxNDArrayFree(ref.ndHandle)
+      ndPhantomRefs.remove(ref)
+      ref = ndRefQueue.poll().asInstanceOf[NDPhantomRef]
+    }
+  }
+}
 /**
  * NDArray object in mxnet.
  * NDArray is basic ndarray/Tensor like data structure in mxnet. <br />
@@ -560,6 +587,8 @@ object NDArray extends NDArrayBase {
 class NDArray private[mxnet](private[mxnet] val handle: NDArrayHandle,
                              val writable: Boolean = true,
                              addToCollector: Boolean = true) extends WarnIfNotDisposed {
+  NDPhantomRef.register(this, handle)
+
   if (addToCollector) {
     NDArrayCollector.collect(this)
   }
