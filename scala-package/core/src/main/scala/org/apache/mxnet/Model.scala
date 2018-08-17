@@ -321,6 +321,7 @@ object Model {
           }
           System.gc()
           NDPhantomRef.cleanup
+          SymPhantomRef.cleanup
         }
         if (doReset) {
           trainData.reset()

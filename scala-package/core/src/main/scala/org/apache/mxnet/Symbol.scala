@@ -17,6 +17,9 @@
 
 package org.apache.mxnet
 
+import java.lang.ref.{PhantomReference, ReferenceQueue}
+import java.util.concurrent.ConcurrentHashMap
+
 import org.apache.mxnet.Base._
 import org.apache.mxnet.DType.DType
 import org.slf4j.{Logger, LoggerFactory}
@@ -29,20 +32,45 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
  * WARNING: it is your responsibility to clear this object through dispose().
  * </b>
  */
+class SymPhantomRef (referent: Symbol, val symHandle: SymbolHandle)
+  extends PhantomReference[Symbol](referent, ExecPhantomRef.execRefQueue) {
+}
+
+object SymPhantomRef {
+  // using ConcurrentHashMap since ConcurrentHashSet is unavailable
+  // this is just holding the SymPhantomRef, so it does not get garbage collected
+  private val symPhantomRefs = new ConcurrentHashMap[ExecPhantomRef, SymbolHandle]()
+  private val symRefQueue = new ReferenceQueue[Symbol]
+  private val logger = LoggerFactory.getLogger(classOf[ExecPhantomRef])
+
+  def register(nd: Symbol, ndHandle: SymbolHandle) : Unit = {
+    symPhantomRefs.put(new ExecPhantomRef(nd, ndHandle), ndHandle)
+  }
+
+  def cleanup: Unit = {
+    var ref = symRefQueue.poll().asInstanceOf[ExecPhantomRef]
+    while (ref != null) {
+      _LIB.mxSymbolFree(ref.execHandle)
+      symPhantomRefs.remove(ref)
+      ref = symRefQueue.poll().asInstanceOf[ExecPhantomRef]
+    }
+  }
+}
+
 class Symbol private(private[mxnet] val handle: SymbolHandle) extends WarnIfNotDisposed {
   private val logger: Logger = LoggerFactory.getLogger(classOf[Symbol])
   private var disposed = false
   protected def isDisposed = disposed
-
+  SymPhantomRef.register(this, handle)
   /**
    * Release the native memory.
    * The object shall never be used after it is disposed.
    */
   def dispose(): Unit = {
-    if (!disposed) {
-      _LIB.mxSymbolFree(handle)
-      disposed = true
-    }
+//    if (!disposed) {
+//      _LIB.mxSymbolFree(handle)
+//      disposed = true
+//    }
   }
 
   def +(other: Symbol): Symbol = Symbol.createFromListedSymbols("_Plus")(Array(this, other))
