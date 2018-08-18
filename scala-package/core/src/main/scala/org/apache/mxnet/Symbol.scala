@@ -33,26 +33,26 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
  * </b>
  */
 class SymPhantomRef (referent: Symbol, val symHandle: SymbolHandle)
-  extends PhantomReference[Symbol](referent, ExecPhantomRef.execRefQueue) {
+  extends PhantomReference[Symbol](referent, SymPhantomRef.symRefQueue) {
 }
 
 object SymPhantomRef {
   // using ConcurrentHashMap since ConcurrentHashSet is unavailable
   // this is just holding the SymPhantomRef, so it does not get garbage collected
-  private val symPhantomRefs = new ConcurrentHashMap[ExecPhantomRef, SymbolHandle]()
+  private val symPhantomRefs = new ConcurrentHashMap[SymPhantomRef, SymbolHandle]()
   private val symRefQueue = new ReferenceQueue[Symbol]
-  private val logger = LoggerFactory.getLogger(classOf[ExecPhantomRef])
+  private val logger = LoggerFactory.getLogger(classOf[SymPhantomRef])
 
-  def register(nd: Symbol, ndHandle: SymbolHandle) : Unit = {
-    symPhantomRefs.put(new ExecPhantomRef(nd, ndHandle), ndHandle)
+  def register(sym: Symbol, symHandle: SymbolHandle) : Unit = {
+    symPhantomRefs.put(new SymPhantomRef(sym, symHandle), symHandle)
   }
 
   def cleanup: Unit = {
-    var ref = symRefQueue.poll().asInstanceOf[ExecPhantomRef]
+    var ref = symRefQueue.poll().asInstanceOf[SymPhantomRef]
     while (ref != null) {
-      _LIB.mxSymbolFree(ref.execHandle)
+      _LIB.mxSymbolFree(ref.symHandle)
       symPhantomRefs.remove(ref)
-      ref = symRefQueue.poll().asInstanceOf[ExecPhantomRef]
+      ref = symRefQueue.poll().asInstanceOf[SymPhantomRef]
     }
   }
 }
