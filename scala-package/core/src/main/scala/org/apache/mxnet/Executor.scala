@@ -46,7 +46,7 @@ object ExecPhantomRef {
   private val logger = LoggerFactory.getLogger(classOf[ExecPhantomRef])
 
   def register(e: Executor, execHandle: ExecutorHandle) : Unit = {
-    execPhantomRefs.put(new ExecPhantomRef(e, execHandle), ndHandle)
+    execPhantomRefs.put(new ExecPhantomRef(e, execHandle), execHandle)
   }
 
   def cleanup: Unit = {
