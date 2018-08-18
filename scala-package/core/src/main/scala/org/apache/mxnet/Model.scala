@@ -321,7 +321,7 @@ object Model {
           }
           System.gc()
           NDPhantomRef.cleanup
-          SymPhantomRef.cleanup
+          ExecPhantomRef.cleanup
         }
         if (doReset) {
           trainData.reset()

@@ -17,6 +17,9 @@
 
 package org.apache.mxnet
 
+import java.lang.ref.{PhantomReference, ReferenceQueue}
+import java.util.concurrent.ConcurrentHashMap
+
 import org.apache.mxnet.Base._
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -31,6 +34,30 @@ object Executor {
   }
 }
 
+class ExecPhantomRef(referent: Executor, val execHandle: ExecutorHandle)
+  extends PhantomReference[Executor](referent, ExecPhantomRef.execRefQueue) {
+}
+
+object ExecPhantomRef {
+  // using ConcurrentHashMap since ConcurrentHashSet is unavailable
+  // this is just holding the SymPhantomRef, so it does not get garbage collected
+  private val execPhantomRefs = new ConcurrentHashMap[ExecPhantomRef, ExecutorHandle]()
+  private val execRefQueue = new ReferenceQueue[Executor]
+  private val logger = LoggerFactory.getLogger(classOf[ExecPhantomRef])
+
+  def register(e: Executor, execHandle: ExecutorHandle) : Unit = {
+    execPhantomRefs.put(new ExecPhantomRef(e, execHandle), ndHandle)
+  }
+
+  def cleanup: Unit = {
+    var ref = execRefQueue.poll().asInstanceOf[ExecPhantomRef]
+    while (ref != null) {
+      _LIB.mxExecutorFree(ref.execHandle)
+      execPhantomRefs.remove(ref)
+      ref = execRefQueue.poll().asInstanceOf[ExecPhantomRef]
+    }
+  }
+}
 /**
  * Symbolic Executor component of MXNet <br />
  * <b>
@@ -62,12 +89,13 @@ class Executor private[mxnet](private[mxnet] val handle: ExecutorHandle,
   private var disposed = false
   protected def isDisposed = disposed
 
+  ExecPhantomRef.register(this, handle)
   def dispose(): Unit = {
-    if (!disposed) {
-      outputs.foreach(_.dispose())
-      _LIB.mxExecutorFree(handle)
-      disposed = true
-    }
+//    if (!disposed) {
+//      outputs.foreach(_.dispose())
+//      _LIB.mxExecutorFree(handle)
+//      disposed = true
+//    }
   }
 
   /**
