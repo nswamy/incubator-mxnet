@@ -22,12 +22,13 @@ set -e
 
 MXNET_ROOT=$(cd "$(dirname $0)/../../.."; pwd)
 echo $MXNET_ROOT
-CLASS_PATH=$MXNET_ROOT/scala-package/assembly/osx-x86_64-cpu/target/*:$MXNET_ROOT/scala-package/examples/target/*:$MXNET_ROOT/scala-package/examples/target/classes/lib/*:$MXNET_ROOT/scala-package/infer/target/*
+CLASS_PATH=$MXNET_ROOT/scala-package/assembly/linux-x86_64-cpu/target/*:$MXNET_ROOT/scala-package/examples/target/*:$MXNET_ROOT/scala-package/examples/target/classes/lib/*:$MXNET_ROOT/scala-package/infer/target/*
 
 # model dir
 DATA_PATH=$2
 
-java -Xmx256M -Dmxnet.traceLeakedObjects=true -cp $CLASS_PATH \
-	org.apache.mxnetexamples.imclassification.TrainMnist \
-	--data-dir /Users/wamy/nswamy/deepengine/workspace/mxnet_scala/scala-package/examples/mnist/ \
-	--num-epochs 10
+java -XX:+PrintGC -Xms256M -Xmx512M -Dmxnet.traceLeakedObjects=false -cp $CLASS_PATH \
+        org.apache.mxnetexamples.imclassification.TrainMnist \
+        --data-dir /home/ubuntu/mxnet_scala/scala-package/examples/mnist/ \
+        --num-epochs 10000000 \
+        --batch-size 1024
