@@ -74,6 +74,7 @@ private[mxnet] object Base {
       logger.error("Couldn't find native library mxnet-scala")
       throw e
   }
+  val gcManager = GCManager.createScheduledGCExecutor()
 
   val _LIB = new LibInfo
   checkCall(_LIB.nativeLibInit())

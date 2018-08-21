@@ -23,39 +23,47 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.Try
 
+trait GCManager {
+}
 object GCManager {
+
   private val logger = LoggerFactory.getLogger(classOf[GCManager])
   private val gcCallFrequencyProperty = "mxnet.gc.callFrequency.InSeconds"
   private val defaultGCCallFrequencyInSeconds = 5
+  var _scheduledExecutor: ScheduledExecutorService = null
 
   private lazy val gcFrequency =
     Try(System.getProperty(GCManager.gcCallFrequencyProperty).toInt).getOrElse(
       GCManager.defaultGCCallFrequencyInSeconds
     )
 
-  private val scheduledExecutor: ScheduledExecutorService =
-    Executors.newSingleThreadScheduledExecutor(new ThreadFactory {
-    override def newThread(r: Runnable): Thread = new Thread(r) {
-      setName(classOf[GCManager].getCanonicalName)
-      setDaemon(true)
+  def createScheduledGCExecutor(): ScheduledExecutorService = {
+
+    if (_scheduledExecutor == null) {
+      val scheduledExecutor: ScheduledExecutorService =
+        Executors.newSingleThreadScheduledExecutor(new ThreadFactory {
+          override def newThread(r: Runnable): Thread = new Thread(r) {
+            setName(classOf[GCManager].getCanonicalName)
+            setDaemon(true)
+          }
+        })
+
+      scheduledExecutor.scheduleAtFixedRate(new Runnable {
+        override def run(): Unit = {
+          logger.info("Calling System.gc")
+          System.gc()
+          logger.info("Done Calling System.gc")
+          NDPhantomRef.cleanup
+          SymPhantomRef.cleanup
+          ExecPhantomRef.cleanup
+        }
+      },
+        GCManager.gcFrequency,
+        GCManager.gcFrequency,
+        TimeUnit.SECONDS
+      )
+      _scheduledExecutor = scheduledExecutor
     }
-  })
-
-  scheduledExecutor.scheduleAtFixedRate(new Runnable {
-      override def run(): Unit = {
-        logger.info("Calling System.gc")
-        System.gc()
-        NDPhantomRef.cleanup
-        SymPhantomRef.cleanup
-        ExecPhantomRef.cleanup
-      }
-    },
-    GCManager.gcFrequency,
-    GCManager.gcFrequency,
-    TimeUnit.SECONDS
-  )
+    _scheduledExecutor
+  }
 }
-
-trait GCManager {
-}
-
