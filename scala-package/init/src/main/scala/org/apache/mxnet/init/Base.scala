@@ -43,6 +43,7 @@ object Base {
     if (System.getenv().containsKey("MXNET_BASEDIR")) {
       baseDir = sys.env("MXNET_BASEDIR")
     }
+    baseDir = "/Users/wamy/nswamy/deepengine/workspace/mxnet_scala/scala-package/init-native"
     val os = System.getProperty("os.name")
     // ref: http://lopica.sourceforge.net/os.html
     if (os.startsWith("Linux")) {
