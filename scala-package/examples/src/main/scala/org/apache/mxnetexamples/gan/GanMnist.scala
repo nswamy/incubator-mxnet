@@ -187,7 +187,7 @@ object GanMnist {
       assert(dataPath != null)
       val context = if (anst.gpu == -1) Context.cpu() else Context.gpu(anst.gpu)
 
-      runTraining(dataPath, context, anst.outputPath, 100)
+      runTraining(dataPath, context, anst.outputPath, anst.numEpochs)
     } catch {
       case ex: Exception => {
         logger.error(ex.getMessage, ex)
@@ -205,4 +205,6 @@ class GanMnist {
   private val outputPath: String = null
   @Option(name = "--gpu", usage = "which gpu card to use, default is -1, means using cpu")
   private val gpu: Int = -1
+  @Option(name = "--num-epochs", usage = "the number of training epochs")
+  private val numEpochs = 100
 }
