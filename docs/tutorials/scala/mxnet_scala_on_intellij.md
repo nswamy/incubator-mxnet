@@ -38,7 +38,7 @@ brew install maven
 
 **Step 4.** Install OpenCV:
 ```
-brew install opencv@2
+brew install opencv
 ```
 
 
@@ -73,7 +73,7 @@ The configuration you should update is in the pom file's dependency for MXNet:
 <dependency>
   <groupId>org.apache.mxnet</groupId>
   <artifactId>mxnet-full_2.11-osx-x86_64-cpu</artifactId>
-  <version>1.2.0</version>
+  <version>1.3.0</version>
 </dependency>
 ```
 
@@ -210,7 +210,7 @@ The project's `pom.xml` will be open for editing.
     <dependency>
       <groupId>org.apache.mxnet</groupId>
       <artifactId>mxnet-full_2.11-osx-x86_64-cpu</artifactId>
-      <version>1.2.0</version>
+      <version>1.3.0</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
