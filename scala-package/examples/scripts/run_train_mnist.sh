@@ -26,8 +26,10 @@ CLASS_PATH=$MXNET_ROOT/scala-package/assembly/linux-x86_64-cpu/target/*:$MXNET_R
 # model dir
 DATA_PATH=$2
 
-java -XX:+PrintGC -Xms256M -Xmx512M -Dmxnet.traceLeakedObjects=false -cp $CLASS_PATH \
-        org.apache.mxnetexamples.imclassification.TrainMnist \
+java -XX:+PrintGC -Dmxnet.traceLeakedObjects=true -cp $CLASS_PATH \
+        org.apache.mxnetexamples.imclassification.TrainModel \
         --data-dir /home/ubuntu/mxnet_scala/scala-package/examples/mnist/ \
+        --network resnet \
+        --num-layers 50 \
         --num-epochs 10000000 \
         --batch-size 1024
