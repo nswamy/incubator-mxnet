@@ -249,13 +249,19 @@ inline int get_num_threads<cpu>(const int N) {
     LOG(FATAL) << "Unknown type enum " << type;            \
   }
 
-#define MXNET_REAL_ACC_TYPE_SWITCH(type, DType, AType, ...)\
+#define MXNET_REAL_ACC_TYPE_SWITCH(type, DType, AType, UpCastAType, ...) \
   switch (type) {                                          \
   case mshadow::kFloat32:                                  \
     {                                                      \
       typedef float DType;                                 \
-      typedef double AType;                                \
-      {__VA_ARGS__}                                        \
+      if (UpCastAType) {                                   \
+        typedef double AType;                              \
+        {__VA_ARGS__}                                      \
+      }                                                    \
+      else {                                               \
+        typedef float AType;                               \
+        {__VA_ARGS__}                                      \
+      }                                                    \
     }                                                      \
     break;                                                 \
   case mshadow::kFloat64:                                  \
@@ -268,8 +274,14 @@ inline int get_num_threads<cpu>(const int N) {
   case mshadow::kFloat16:                                  \
     {                                                      \
       typedef mshadow::half::half_t DType;                 \
-      typedef float AType;                                 \
-      {__VA_ARGS__}                                        \
+      if (UpCastAType) {                                   \
+        typedef float AType;                               \
+        {__VA_ARGS__}                                      \
+      }                                                    \
+      else {                                               \
+        typedef mshadow::half::half_t AType;               \
+        {__VA_ARGS__}                                      \
+      }                                                    \
     }                                                      \
     break;                                                 \
   case mshadow::kUint8:                                    \

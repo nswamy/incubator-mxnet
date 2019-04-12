@@ -410,7 +410,10 @@ void SoftmaxCompute(const nnvm::NodeAttrs& attrs,
   const double temperature = param.temperature.has_value() ?
     param.temperature.value() : 1.0;
   mxnet::TShape shape = AxisShapeCompact(inputs[0].shape_, &axis, true);
-  MXNET_REAL_ACC_TYPE_SWITCH(inputs[0].type_flag_, DType, AType, {
+
+  bool upcast_atype = softmax_has_dtype_override(attrs);
+
+  MXNET_REAL_ACC_TYPE_SWITCH(inputs[0].type_flag_, DType, AType, upcast_atype, {
     MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, OType, {
       if (shape.ndim() == 2) {
         Softmax<OP, negate, AType>(
@@ -444,7 +447,9 @@ void SoftmaxGradCompute(const nnvm::NodeAttrs& attrs,
 
   int out_idx = softmax_has_dtype_override(attrs) ? 2 : 1;
 
-  MXNET_REAL_ACC_TYPE_SWITCH(inputs[0].type_flag_, OType, AType, {
+  bool upcast_atype = softmax_has_dtype_override(attrs);
+
+  MXNET_REAL_ACC_TYPE_SWITCH(inputs[0].type_flag_, OType, AType, upcast_atype, {
     MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
       MXNET_ASSIGN_REQ_SWITCH(req[0], Req, {
         if (shape.ndim() == 2) {
