@@ -249,12 +249,13 @@ inline int get_num_threads<cpu>(const int N) {
     LOG(FATAL) << "Unknown type enum " << type;            \
   }
 
-#define MXNET_REAL_ACC_TYPE_SWITCH(type, DType, AType, ...)\
+#define MXNET_REAL_ACC_TYPE_SWITCH(type, DType, AType, UpCastType, ...) \
   switch (type) {                                          \
   case mshadow::kFloat32:                                  \
     {                                                      \
       typedef float DType;                                 \
-      typedef double AType;                                \
+      typedef float AType;                                 \
+      if (UpCastType) { typedef double AType; }            \
       {__VA_ARGS__}                                        \
     }                                                      \
     break;                                                 \
@@ -268,7 +269,9 @@ inline int get_num_threads<cpu>(const int N) {
   case mshadow::kFloat16:                                  \
     {                                                      \
       typedef mshadow::half::half_t DType;                 \
-      typedef float AType;                                 \
+      typedef mshadow::half::half_t AType;                 \
+      if (UpCastType) {                                    \
+        typedef float AType; }                             \
       {__VA_ARGS__}                                        \
     }                                                      \
     break;                                                 \
